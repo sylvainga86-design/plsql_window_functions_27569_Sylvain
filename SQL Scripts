@@ -1,0 +1,137 @@
+-- STEP 3: Database Schema Design
+
+--Patients
+
+CREATE TABLE patients (
+    patient_id INT PRIMARY KEY,
+    full_name VARCHAR(100),
+    gender VARCHAR(10),
+    region VARCHAR(50)
+);
+
+--Servises
+
+CREATE TABLE services (
+    service_id INT PRIMARY KEY,
+    service_name VARCHAR(100),
+    department VARCHAR(50),
+    service_cost DECIMAL(10,2)
+);
+
+--Visits
+
+CREATE TABLE visits (
+    visit_id INT PRIMARY KEY,
+    patient_id INT,
+    service_id INT,
+    visit_date DATE,
+    quantity INT,
+    total_bill DECIMAL(10,2),
+    FOREIGN KEY (patient_id) REFERENCES patients(patient_id),
+    FOREIGN KEY (service_id) REFERENCES services(service_id)
+);
+
+-- STEP 4: PART A — SQL JOINs Implementation
+
+--INNER JOIN — Valid Visits
+
+SELECT p.full_name, s.service_name, v.visit_date, v.total_bill
+FROM visits v
+INNER JOIN patients p ON v.patient_id = p.patient_id
+INNER JOIN services s ON v.service_id = s.service_id;
+
+--LEFT JOIN — Patients with No Visits
+
+SELECT p.patient_id, p.full_name
+FROM patients p
+LEFT JOIN visits v ON p.patient_id = v.patient_id
+WHERE v.visit_id IS NULL;
+
+--RIGHT JOIN — Services Never Used
+
+SELECT s.service_id, s.service_name
+FROM visits v
+RIGHT JOIN services s ON v.service_id = s.service_id
+WHERE v.visit_id IS NULL;
+
+--RIGHT JOIN — Services Never Used
+
+SELECT s.service_id, s.service_name
+FROM visits v
+RIGHT JOIN services s ON v.service_id = s.service_id
+WHERE v.visit_id IS NULL;
+
+--FULL OUTER JOIN — Patients & Services
+
+SELECT p.full_name, s.service_name
+FROM patients p
+FULL OUTER JOIN services s
+ON p.region = s.department;
+
+--SELF JOIN — Patients from Same Region
+
+SELECT p1.full_name AS patient1,
+       p2.full_name AS patient2,
+       p1.region
+FROM patients p1
+JOIN patients p2
+ON p1.region = p2.region
+AND p1.patient_id <> p2.patient_id;
+
+--STEP 5: PART B — Window Functions
+
+--Ranking Functions — Top Services by Revenue
+
+SELECT service_id,
+       department,
+       SUM(total_bill) AS total_revenue,
+       RANK() OVER (
+           PARTITION BY department
+           ORDER BY SUM(total_bill) DESC
+       ) AS service_rank
+FROM visits v
+JOIN services s ON v.service_id = s.service_id
+GROUP BY service_id, department;
+
+--Aggregate Window — Running Revenue
+
+SELECT visit_date,
+       SUM(total_bill) OVER (
+           ORDER BY visit_date
+           ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+       ) AS running_revenue
+FROM visits;
+
+--Navigation Function — Month-to-Month Growth
+
+SELECT visit_date,
+       total_bill,
+       total_bill -
+       LAG(total_bill) OVER (ORDER BY visit_date) AS revenue_growth
+FROM visits;
+
+--Distribution Functions — Patient Segmentation
+
+SELECT patient_id,
+       SUM(total_bill) AS total_spent,
+       NTILE(4) OVER (
+           ORDER BY SUM(total_bill) DESC
+       ) AS spending_quartile
+FROM visits
+GROUP BY patient_id;
+
+--Moving Average (3-Month)
+
+SELECT visit_date,
+       AVG(total_bill) OVER (
+           ORDER BY visit_date
+           ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+       ) AS three_month_avg
+FROM visits;
+
+
+
+
+
+
+
